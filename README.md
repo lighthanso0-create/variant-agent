@@ -15,21 +15,21 @@
 
 ```
                  ┌─────────────────────┐
-   사용자 질문 -> │  LLM (Claude API)     │
+   사용자 질문 -> │  LLM (Claude API)   │
                  └─────────┬────────────┘
                            │
               ┌────────────▼─────────────┐
-              │  1. lookup_clinvar        │  찾음? -> 바로 라벨 보고, 종료
+              │  1. lookup_clinvar       │  찾음? -> 바로 라벨 보고, 종료
               └────────────┬─────────────┘
                            │ 못 찾음
               ┌────────────▼─────────────┐   ┌───────────────────────────┐
-              │ 2. get_reference_sequence │   │ 3. get_epigenomic_signal  │
+              │ 2. get_reference_sequence│   │ 3. get_epigenomic_signal  │
               │   ALT 치환된 DNA 서열     │   │   H3K27ac/DNase, ±512bp   │
               └────────────┬─────────────┘   └─────────────┬─────────────┘
                            └───────────────┬────────────────┘
                               ┌────────────▼─────────────┐
-                              │ 4. predict_pathogenicity  │  실제 Late Fusion
-                              │  (model.py, DNABERT-2 +   │  모델
+                              │ 4. predict_pathogenicity │  실제 Late Fusion
+                              │  (model.py, DNABERT-2 +  │  모델
                               └────────────┬─────────────┘
                                            ▼
               근거를 밝힌 판정, 또는 모델 확신도가

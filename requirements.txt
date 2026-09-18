@@ -1,0 +1,7 @@
+anthropic>=0.40.0
+
+# Needed on the GPU server to run train.py / model.py's real path
+# (likely already installed there, since training happened there before):
+# torch, transformers, pandas, scikit-learn, tqdm
+# pysam        # get_reference_sequence real path
+# pyBigWig     # get_epigenomic_signal real path (via extract_signals_max.py)

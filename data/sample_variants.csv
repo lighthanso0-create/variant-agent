@@ -1,0 +1,11 @@
+chrom,pos,ref,alt,gene,tissue,true_label
+chr1,930165,G,A,SAMD11,liver,benign
+chr1,935222,C,T,SAMD11,liver,pathogenic
+chr17,43094692,A,G,BRCA1,brain,pathogenic
+chr17,43092919,T,C,BRCA1,brain,benign
+chr13,32398489,G,A,BRCA2,heart,pathogenic
+chr7,117559593,C,T,CFTR,liver,pathogenic
+chr7,117606753,A,G,CFTR,liver,benign
+chr11,108236230,G,T,ATM,brain,benign
+chr2,47630456,C,A,MSH2,heart,pathogenic
+chr3,37034946,T,C,MLH1,liver,benign

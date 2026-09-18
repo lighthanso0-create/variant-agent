@@ -7,8 +7,9 @@
 
 기존에 진행 중이던 조직 특이적 DNA 변이 병원성 예측 프로젝트(DNABERT-2 +
 후성유전학 신호)를 확장한 형태이다. 처음부터 새 에이전트 프로젝트를
-시작하는 대신, 이미 동작하는 모델 위에 LLM 오케스트레이션 레이어를
-얹었다.
+시작하는 대신, 이미 동작하는 모델 위에 LLM 오케스트레이션 레이어를 얹었다.
+
+## 구조
 
 ## 구조
 
@@ -28,49 +29,40 @@
                            └───────────────┬────────────────┘
                               ┌────────────▼─────────────┐
                               │ 4. predict_pathogenicity  │  실제 Late Fusion
-                              │  (model.py, DNABERT-2 +   │  모델 — predict.py의
-                              │   epi signal + tissue)    │  모델이 아님
+                              │  (model.py, DNABERT-2 +   │  모델
                               └────────────┬─────────────┘
                                            ▼
               근거를 밝힌 판정, 또는 모델 확신도가
               0.7 미만이면 "전문가 검토 필요"
 ```
 
-도구 2~4는 각각 REAL 경로와 MOCK 대체 경로(값이 정해진 형태로 명확히
-표시됨)를 갖고 있어서, 실제 파일이 없어도 파이프라인 전체가 일단 돌아가게
-되어 있다. **GPU 서버에서 테스트가 완료된 상태이다**
+## 상태
 
-| 도구 | 상태 | 확인 방법 |
-|---|---|---|
-| 1. `lookup_clinvar` | 실데이터 연결 시 real | 단순 CSV 조회라 mock/real 구분 자체가 없음 |
-| 2. `get_reference_sequence` | **real, 검증 완료** | `source: real_reference_fasta`; `/workspace/hg38.fa` 기준으로 ALT 염기가 정확한 중앙 위치에 들어간 것까지 확인 |
-| 3. `get_epigenomic_signal` | **real, 검증 완료** | `source: real_bigwig_extraction`; 실제 train-only z-score 통계로 정규화된 값 확인 |
-| 4. `predict_pathogenicity` | ⚠️ **mock — 체크포인트 없음** | 아래 "알려진 한계" 참고 |
+| 도구 | 상태 |
+|---|---|
+| 1. `lookup_clinvar` | real (실데이터 연결 시) |
+| 2. `get_reference_sequence` | real — `/workspace/hg38.fa` 기준 ALT 치환 위치까지 검증 |
+| 3. `get_epigenomic_signal` | real — train-only z-score 정규화 적용 확인 |
+| 4. `predict_pathogenicity` | real — 자체 학습한 Late Fusion 체크포인트로 검증 (아래 "모델" 참고) |
 
-**중요:** 여기 있는 `model.py`는 팀의 `baseline2_latefusion.py`(`LateFusionModel`
-— 서열 + epi_signal + tissue_id, Macro AUPRC 0.880)를 기반으로 만들었다.
-`predict.py`(다른, stage1 DNA-only 모델을 불러오는 스크립트)를 그대로
-쓴 게 아니다
-$$$입력 형태 자체가 다르므로 혼동해서 사용하면 안된다...
+`model.py`는 팀의 `baseline2_latefusion.py`(`LateFusionModel` — 서열 + epi_signal
++ tissue_id)를 기반으로 만들었다. 같은 저장소의 `predict.py`는 입력 형태가 다른
+별도 모델(stage1, DNA-only)을 불러오는 스크립트라 사용하지 않았다.
 
 ## 파일 구성
 
-- `agent.py` — tool-use 루프와 4개 도구용 system prompt.
-- `tools.py` — 4개 도구 구현체. `extract_signals_max.py`와 hg38 FASTA
-  (`REFERENCE_FASTA_PATH`)를 같은 폴더에 두면 도구 2~3이 mock에서 real로
-  자동 전환됨
-- `model.py` — `baseline2_latefusion.py`에서 그대로 가져온 실제
-  `LateFusionModel` 구조 + 체크포인트를 불러와 변이 하나를 추론하는
-  `predict()` 헬퍼. `MODEL_CHECKPOINT_PATH`를 실제 `best_model.pt`로
-  지정하면 real 모드로 동작
-- `normalize.py` — train-only z-score 계산/적용(leakage 버그 수정
-  로직), `get_epigenomic_signal`의 3단계에서 재사용됨
-- `evaluate.py` — 라벨이 있는 테스트셋을 에이전트에 돌려서, 결과를
-  `correct`, `flagged_for_review`, `wrong_coordinate_parsing`,
-  `tissue_confusion`, `tool_call_omission`, `unsupported_claim`,
-  `incorrect`, `no_final_answer` 중 하나로 분류
-- `data/sample_variants.csv` — **합성 예시 데이터**이며 실제 ClinVar
-  기록이 아니다. 
+- `agent.py` — tool-use 루프와 4개 도구용 system prompt
+- `tools.py` — 4개 도구 구현체. `extract_signals_max.py`와 hg38 FASTA를
+  같은 폴더에 두고 경로만 지정하면 real 모드로 동작
+- `model.py` — `LateFusionModel` 구조 + 체크포인트 로드/추론 헬퍼
+- `train.py` — 자체 학습 스크립트 (아래 "모델" 참고)
+- `build_eval_set.py` — held-out test split에서 라벨 있는 평가셋 샘플링
+- `normalize.py` — train-only z-score 계산/적용 (leakage 버그 수정 로직)
+- `evaluate.py` — 라벨 있는 테스트셋을 에이전트에 돌려 결과를 `correct`,
+  `flagged_for_review`, `wrong_coordinate_parsing`, `tissue_confusion`,
+  `tool_call_omission`, `unsupported_claim`, `incorrect`, `no_final_answer`로 분류
+- `data/sample_variants.csv` — 합성 예시 데이터
+- `data/real_eval_variants.csv` — held-out test split에서 뽑은 실제 라벨 변이 90개
 
 ## 설치
 
@@ -82,59 +74,45 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 ## 실행
 
 ```bash
-python agent.py                        # 단일 예시 질의
-python evaluate.py data/sample_variants.csv   # 전체 평가 실행
+python agent.py                              # 단일 예시 질의
+python build_eval_set.py                     # 실제 평가셋 생성
+python evaluate.py data/real_eval_variants.csv   # 전체 평가 실행
 ```
 
-## 실제 모델·데이터 연결 현황
+## 모델
 
-1. ✅ `KNOWN_VARIANTS_PATH` — 실제 캡스톤 split 파일이 준비되면 그걸
-   가리키면 됩니다(지금은 합성 데이터인 `data/sample_variants.csv` 사용 중).
-2. ✅ **완료.** `extract_signals_max.py`를 `tools.py` 옆에 복사했고,
-   `ZSCORE_STATS_PATH`를
-   `/workspace/signals_seed42_zscore_trainonly_0904/zscore_stats_trainonly.npy`로
-   지정, real 출력 확인함.
-3. ✅ **완료.** `REFERENCE_FASTA_PATH`를 `/workspace/hg38.fa`(UCSC에서
-   다운로드, `pysam.faidx`로 인덱싱)로 지정, real 출력 확인함 — 정확한
-   위치에 정확한 ALT 염기가 들어감.
-4. ❌ **막힘.** `MODEL_CHECKPOINT_PATH` — 동작하는 baseline2(Late Fusion)
-   체크포인트를 아직 찾지 못했습니다. "알려진 한계" 참고.
-5. 4번이 해결되면 `evaluate.py`를 다시 돌려서 아래 "평가 결과"를 실제
-   수치로 교체합니다.
+팀의 공식 baseline2(Late Fusion) 체크포인트는 GPU 서버·팀 GitHub·팀 공유 Drive
+링크 어디에서도 지금 코드와 맞는 버전을 찾지 못해, 동일한 아키텍처를 직접
+학습시켰다. Train-only로 재정규화한 실제 데이터(leakage 수정 완료본)로 단일
+seed, 축소된 epoch으로 학습한 결과 macro AUPRC 0.28을 기록했다 — 팀이 3-seed,
+30-epoch 튜닝으로 낸 0.88과는 차이가 있으며, 파이프라인이 실제 체크포인트로
+end-to-end 작동함을 검증하는 목적에 한정된다.
 
-## 평가 결과
+## 평가
 
-_아직 실행 안 함 — 모델 체크포인트 문제로 막혀 있습니다(알려진 한계 참고).
-도구 1~3은 real이고, 지금 돌리면 4단계(모델 추론)만 mock으로 남습니다._
-
-| 지표 | 값 |
-|---|---|
-| 정확도 | — |
-| 전문가 검토로 넘어간 비율 | — |
-| 관찰된 실패 유형(건수 포함) | — |
+`build_eval_set.py`로 학습에 사용되지 않은 held-out test split에서 조직당
+병원성 15개, 양성 15개씩 총 90개 변이를 뽑아 `data/real_eval_variants.csv`로
+준비해두었다. 도구 4개는 각각 실제 데이터로 개별 검증했으며, `evaluate.py`를
+통한 전체 자동 평가는 Anthropic API 비용 문제로 아직 실행하지 않았다 — 실행
+준비는 끝난 상태다.
 
 ## 알려진 한계
 
-- **`predict_pathogenicity`가 mock 상태로 동작합니다 — baseline2(Late
-  Fusion) 체크포인트를 찾지 못했습니다.** 확인한 순서:
-  1. GPU 서버 (`find /workspace -iname "*.pt"` / `*checkpoint*"` —
-     아무것도 안 나옴). `baseline2_latefusion.py`가 저장하는
-     `outputs/` 구조 자체가 이 서버엔 없음 — 즉 최종 학습 결과가 이
-     서버에 저장/실행되지 않았다는 뜻.
-  2. 팀 GitHub 저장소(`gLM-with-ephigenomic`) — `baseline2_latefusion.py`
-     (학습·모델 구조 코드)는 있지만 체크포인트 파일은 없음. 체크포인트는
-     용량이 커서 일반 git 저장소 대신 Drive로 공유됨.
-  3. 팀 카톡에 공유된 Google Drive 링크 3개(5/15, 5/18, 6/3) — 각각
-     최종 baseline2 결과가 아닌 다른 것으로 명시되어 있음(수정 전
-     seed42 버전, 학습률 실험, baseline3). 6/3 팀 진행상황 공유에서
-     그 시점까지도 baseline2 학습이 GPU 자리 부족으로 진행 중이었다고
-     확인됨 — 그 이후의, 지금 코드와 맞는 체크포인트는 아직 확인되지
-     않음.
-  이건 개인 역량이 아니라 팀/GPU 스케줄링에 달린 외부 의존성입니다 —
-  도구 1~3은 real로 검증됐고, `predict_pathogenicity`의 real 경로
-  (`model.py`, 실제 `LateFusionModel` 구조 기반)도 이미 구현되어 있어서
-  맞는 체크포인트만 확보되면 바로 돌아갑니다.
+- 자체 학습한 체크포인트의 성능(macro AUPRC 0.28)은 팀의 튜닝된 결과(0.88)보다
+  낮다. 파이프라인 검증 목적으로는 충분하나, 성능 자체를 대표하지 않는다.
+- `evaluate.py`의 전체 자동 실행(실패 유형 분석 포함)은 API 비용으로 인해 아직
+  진행하지 않았다.
 - "전문가 검토 필요" 기준값(0.7)은 첫 추정치이며, 실제 precision/recall
-  트레이드오프에 맞춰 튜닝된 값은 아닙니다.
-- 아직 RAG(검색 증강) 요소가 없습니다(예: ACMG 변이 분류 가이드라인을
-  근거로 함께 제시하는 것) — 자연스러운 다음 확장 지점입니다.
+  트레이드오프에 맞춰 튜닝되지 않았다.
+- RAG(검색 증강) 요소가 없다 — ACMG 변이 분류 가이드라인을 근거로 함께
+  제시하는 것이 자연스러운 다음 확장 지점이다.
+
+
+
+
+
+
+
+
+
+

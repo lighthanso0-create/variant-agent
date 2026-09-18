@@ -48,7 +48,7 @@
 | 3. `get_epigenomic_signal` | real — train-only z-score 정규화 적용 확인 |
 | 4. `predict_pathogenicity` | real — 자체 학습한 Late Fusion 체크포인트로 검증 (아래 "모델" 참고) |
 
-`model.py`는 팀의 `baseline2_latefusion.py`(`LateFusionModel` — 서열 + epi_signal
+`model.py`는 팀의 `baseline2_latefusion.py`(`LateFusionModel` - 서열 + epi_signal
 + tissue_id)를 기반으로 만들었다. 같은 저장소의 `predict.py`는 입력 형태가 다른
 별도 모델(stage1, DNA-only)을 불러오는 스크립트라 사용하지 않았다.
 
@@ -88,7 +88,7 @@ python evaluate.py data/real_eval_variants.csv   # 전체 평가 실행
 링크 어디에서도 지금 코드와 맞는 버전을 찾지 못해, 동일한 아키텍처를 직접
 학습시켰다. Train-only로 재정규화한 실제 데이터(leakage 수정 완료본)로 단일
 seed, 축소된 epoch으로 학습한 결과 macro AUPRC 0.28을 기록했다 — 팀이 3-seed,
-30-epoch 튜닝으로 낸 0.88과는 차이가 있으며, 파이프라인이 실제 체크포인트로
+30-epoch 튜닝으로 낸 결과와는 차이가 있으며, 파이프라인이 실제 체크포인트로
 end-to-end 작동함을 검증하는 목적에 한정된다.
 
 ## 평가
@@ -107,7 +107,7 @@ end-to-end 작동함을 검증하는 목적에 한정된다.
   진행하지 않았다.
 - "전문가 검토 필요" 기준값(0.7)은 첫 추정치이며, 실제 precision/recall
   트레이드오프에 맞춰 튜닝되지 않았다.
-- RAG(검색 증강) 요소가 없다 — ACMG 변이 분류 가이드라인을 근거로 함께
+- RAG(검색 증강) 요소가 없다 - ACMG 변이 분류 가이드라인을 근거로 함께
   제시하는 것이 자연스러운 다음 확장 지점이다.
 
 

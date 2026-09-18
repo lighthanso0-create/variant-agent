@@ -1,20 +1,14 @@
 # Variant Interpretation Agent (변이 해석 에이전트)
 
-간단한 tool-use(함수 호출) 기반 LLM 에이전트로, 유전체 변이를 해석합니다.
+간단한 tool-use(함수 호출) 기반 LLM 에이전트로, 유전체 변이를 해석한다.
 먼저 기존에 라벨링된 변이 데이터셋을 조회하고, 처음 보는 변이라면 병원성
 예측 모델로 넘어가며, 모델 확신도가 낮으면 추측 대신 "전문가 검토 필요"로
-표시합니다.
+표시한다.
 
 기존에 진행 중이던 조직 특이적 DNA 변이 병원성 예측 프로젝트(DNABERT-2 +
-후성유전학 신호)를 확장한 형태입니다 — 처음부터 새 에이전트 프로젝트를
+후성유전학 신호)를 확장한 형태이다. 처음부터 새 에이전트 프로젝트를
 시작하는 대신, 이미 동작하는 모델 위에 LLM 오케스트레이션 레이어를
-얹었습니다.
-
-## 이 프로젝트를 만든 이유
-
-Inocras 인턴십 지원서의 "LLM API 활용 수준" 문항이 다루는 두 역량(LLM
-tool-use, 멀티스텝 에이전트 설계·평가)을 실제로 손에 익히기 위해 2주 집중
-프로젝트로 진행했습니다.
+얹었다.
 
 ## 구조
 
@@ -44,40 +38,39 @@ tool-use, 멀티스텝 에이전트 설계·평가)을 실제로 손에 익히�
 
 도구 2~4는 각각 REAL 경로와 MOCK 대체 경로(값이 정해진 형태로 명확히
 표시됨)를 갖고 있어서, 실제 파일이 없어도 파이프라인 전체가 일단 돌아가게
-되어 있습니다. **GPU 서버에서 직접 테스트한 현재 상태:**
+되어 있다. **GPU 서버에서 테스트가 완료된 상태이다**
 
 | 도구 | 상태 | 확인 방법 |
 |---|---|---|
 | 1. `lookup_clinvar` | 실데이터 연결 시 real | 단순 CSV 조회라 mock/real 구분 자체가 없음 |
-| 2. `get_reference_sequence` | ✅ **real, 검증 완료** | `source: real_reference_fasta`; `/workspace/hg38.fa` 기준으로 ALT 염기가 정확한 중앙 위치에 들어간 것까지 확인 |
-| 3. `get_epigenomic_signal` | ✅ **real, 검증 완료** | `source: real_bigwig_extraction`; 실제 train-only z-score 통계로 정규화된 값 확인 |
+| 2. `get_reference_sequence` | **real, 검증 완료** | `source: real_reference_fasta`; `/workspace/hg38.fa` 기준으로 ALT 염기가 정확한 중앙 위치에 들어간 것까지 확인 |
+| 3. `get_epigenomic_signal` | **real, 검증 완료** | `source: real_bigwig_extraction`; 실제 train-only z-score 통계로 정규화된 값 확인 |
 | 4. `predict_pathogenicity` | ⚠️ **mock — 체크포인트 없음** | 아래 "알려진 한계" 참고 |
 
 **중요:** 여기 있는 `model.py`는 팀의 `baseline2_latefusion.py`(`LateFusionModel`
-— 서열 + epi_signal + tissue_id, Macro AUPRC 0.880)를 기반으로 만들었습니다.
+— 서열 + epi_signal + tissue_id, Macro AUPRC 0.880)를 기반으로 만들었다.
 `predict.py`(다른, stage1 DNA-only 모델을 불러오는 스크립트)를 그대로
-쓴 게 아닙니다 — 입력 형태 자체가 다르므로 둘을 혼동해서 바꿔치기하면
-안 됩니다.
+쓴 게 아니다
+$$$입력 형태 자체가 다르므로 혼동해서 사용하면 안된다...
 
 ## 파일 구성
 
 - `agent.py` — tool-use 루프와 4개 도구용 system prompt.
 - `tools.py` — 4개 도구 구현체. `extract_signals_max.py`와 hg38 FASTA
   (`REFERENCE_FASTA_PATH`)를 같은 폴더에 두면 도구 2~3이 mock에서 real로
-  자동 전환됩니다 — 다른 코드 수정은 필요 없습니다.
+  자동 전환됨
 - `model.py` — `baseline2_latefusion.py`에서 그대로 가져온 실제
   `LateFusionModel` 구조 + 체크포인트를 불러와 변이 하나를 추론하는
   `predict()` 헬퍼. `MODEL_CHECKPOINT_PATH`를 실제 `best_model.pt`로
-  지정하면 real 모드로 동작합니다.
+  지정하면 real 모드로 동작
 - `normalize.py` — train-only z-score 계산/적용(leakage 버그 수정
-  로직), `get_epigenomic_signal`의 3단계에서 재사용됩니다.
+  로직), `get_epigenomic_signal`의 3단계에서 재사용됨
 - `evaluate.py` — 라벨이 있는 테스트셋을 에이전트에 돌려서, 결과를
   `correct`, `flagged_for_review`, `wrong_coordinate_parsing`,
   `tissue_confusion`, `tool_call_omission`, `unsupported_claim`,
-  `incorrect`, `no_final_answer` 중 하나로 분류합니다.
+  `incorrect`, `no_final_answer` 중 하나로 분류
 - `data/sample_variants.csv` — **합성 예시 데이터**이며 실제 ClinVar
-  기록이 아닙니다. 결론을 내리기 전에 실제 라벨링된 split으로 교체해야
-  합니다.
+  기록이 아니다. 
 
 ## 설치
 

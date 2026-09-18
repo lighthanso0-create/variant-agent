@@ -87,8 +87,9 @@ python evaluate.py data/real_eval_variants.csv   # 전체 평가 실행
 팀의 공식 baseline2(Late Fusion) 체크포인트는 GPU 서버·팀 GitHub·팀 공유 Drive
 링크 어디에서도 지금 코드와 맞는 버전을 찾지 못해, 동일한 아키텍처를 직접
 학습시켰다. Train-only로 재정규화한 실제 데이터(leakage 수정 완료본)로 단일
-seed, 축소된 epoch으로 학습한 결과 macro AUPRC 0.28을 기록했다 — 팀이 3-seed,
-30-epoch 튜닝으로 낸 결과와는 차이가 있으며, 파이프라인이 실제 체크포인트로
+seed, 축소된 epoch으로 학습한 결과 macro AUPRC 0.28을 기록했다  
+
+* 팀이 3-seed, 30-epoch 튜닝으로 낸 결과와는 차이가 있으며, 파이프라인이 실제 체크포인트로
 end-to-end 작동함을 검증하는 목적에 한정된다.
 
 ## 평가
@@ -96,8 +97,7 @@ end-to-end 작동함을 검증하는 목적에 한정된다.
 `build_eval_set.py`로 학습에 사용되지 않은 held-out test split에서 조직당
 병원성 15개, 양성 15개씩 총 90개 변이를 뽑아 `data/real_eval_variants.csv`로
 준비해두었다. 도구 4개는 각각 실제 데이터로 개별 검증했으며, `evaluate.py`를
-통한 전체 자동 평가는 Anthropic API 비용 문제로 아직 실행하지 않았다 — 실행
-준비는 끝난 상태다.
+통한 전체 자동 평가는 실행전이다.
 
 ## 알려진 한계
 
@@ -107,8 +107,6 @@ end-to-end 작동함을 검증하는 목적에 한정된다.
   진행하지 않았다.
 - "전문가 검토 필요" 기준값(0.7)은 첫 추정치이며, 실제 precision/recall
   트레이드오프에 맞춰 튜닝되지 않았다.
-- RAG(검색 증강) 요소가 없다 - ACMG 변이 분류 가이드라인을 근거로 함께
-  제시하는 것이 자연스러운 다음 확장 지점이다.
 
 
 
